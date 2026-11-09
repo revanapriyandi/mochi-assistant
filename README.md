@@ -2,6 +2,8 @@
 
 MLH Global Hack Week: Builders Week, *The Context-Preserving Assistant (Full-Stack Identity & API Access)*.
 
+**Live demo: https://production-mochi-assistant.tyzo.nodeops.app**
+
 Mochi is a cute 2D cat you talk to. Tap it, speak, and it answers out loud, acting **as you**:
 
 1. **Auth0 Universal Login** signs you in (`express-openid-connect`, with `offline_access` for silent refresh).
