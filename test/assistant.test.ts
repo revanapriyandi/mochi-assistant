@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { recommend } from '../src/assistant/decisions.ts';
 import { chat } from '../src/assistant/index.ts';
-import { brain, openaiTurn, providers, type OpenAIMessage } from '../src/assistant/llm.ts';
+import { brain, openaiTurn, type OpenAIMessage } from '../src/assistant/llm.ts';
 import { mood } from '../src/assistant/mood.ts';
 import { plan } from '../src/assistant/planner.ts';
 import { zoned, parseTimes } from '../src/assistant/time.ts';
@@ -69,15 +69,15 @@ assert.equal(mood('Google Calendar belum terhubung'), 'confused');
 assert.equal(mood('Ada 2 acara besok.'), 'neutral');
 
 // Planner: parses the decision JSON and drops unknown tools
-process.env.LLM_API_KEY = 'test-key';
+process.env.GROQ_API_KEY = 'groq-key';
 const plannerFetch = (async () => json({ choices: [{ message: { content: '```json\n{"route":"agent","tools":["day_briefing","nope"],"reason":"needs advice"}\n```' } }] })) as typeof fetch;
 assert.deepEqual(await plan('should I go running tomorrow?', '', plannerFetch), { route: 'agent', tools: ['day_briefing'], reason: 'needs advice' });
 assert.equal(await plan('x', '', (async () => json({ choices: [{ message: { content: 'not json' } }] })) as typeof fetch), null);
 
-// OpenAI-compatible loop (Gemini): tool call -> tool result -> final text, system prompt first
-const llmCalls: { url: string; body: { model: string; tools: { function: { name: string; parameters: Record<string, unknown> } }[] }; auth: string }[] = [];
+// OpenAI-compatible loop (Groq): tool call -> tool result -> final text, system prompt first, extras stripped
+const llmCalls: { url: string; body: { model: string; messages: Record<string, unknown>[]; tools: { function: { name: string; parameters: Record<string, unknown> } }[] }; auth: string }[] = [];
 const replies: OpenAIMessage[] = [
-  { role: 'assistant', content: null, tool_calls: [{ id: 'c1', type: 'function', function: { name: 'get_profile', arguments: '{}' } }] },
+  { role: 'assistant', content: null, reasoning: 'thinking...', tool_calls: [{ id: 'c1', type: 'function', function: { name: 'get_profile', arguments: '{}' } }] },
   { role: 'assistant', content: 'Halo! Kota default kamu Bandung.' },
 ];
 const llmFetch = (async (url: string, init: RequestInit) => {
@@ -87,41 +87,23 @@ const llmFetch = (async (url: string, init: RequestInit) => {
 const msgs: OpenAIMessage[] = [{ role: 'user', content: 'hi' }];
 const cards: Card[] = [];
 assert.equal(await openaiTurn(msgs, ctx, cards, llmFetch), 'Halo! Kota default kamu Bandung.');
-assert.ok(llmCalls[0].url.endsWith('/v1beta/openai/chat/completions'));
-assert.equal(llmCalls[0].auth, 'Bearer test-key');
-assert.equal(llmCalls[0].body.model, 'gemini-3.8-flash');
+assert.equal(llmCalls[0].url, 'https://api.groq.com/openai/v1/chat/completions');
+assert.equal(llmCalls[0].auth, 'Bearer groq-key');
+assert.equal(llmCalls[0].body.model, 'openai/gpt-oss-120b');
 assert.equal(llmCalls[0].body.tools.find((t) => t.function.name === 'get_profile')!.function.parameters.additionalProperties, undefined);
+assert.equal(llmCalls[1].body.messages[2].reasoning, undefined); // Groq rejects its own `reasoning` field sent back
 assert.deepEqual(msgs.map((m) => m.role), ['system', 'user', 'assistant', 'tool', 'assistant']);
 assert.equal(JSON.parse(String(msgs[3].content)).city, 'Bandung');
 assert.deepEqual(cards.map((c) => c.tool), ['get_profile']);
+assert.equal(brain(), 'Groq openai/gpt-oss-120b');
 
-// Groq fallback: its own URL, key and model, and Gemini-only extras stripped from the history it gets
-process.env.GROQ_API_KEY = 'groq-key';
-const groq = providers()[1];
-assert.equal(groq.url, 'https://api.groq.com/openai/v1/');
-assert.equal(groq.model, 'openai/gpt-oss-120b');
-let groqBody: { messages: Record<string, unknown>[] } | undefined;
-const groqFetch = (async (url: string, init: RequestInit) => {
-  assert.equal(url, 'https://api.groq.com/openai/v1/chat/completions');
-  assert.equal((init.headers as Record<string, string>).authorization, 'Bearer groq-key');
-  groqBody = JSON.parse(String(init.body));
-  return json({ choices: [{ message: { role: 'assistant', content: 'Siap!' } }] });
-}) as unknown as typeof fetch;
-const withSig: OpenAIMessage[] = [{ role: 'system', content: 's' }, { role: 'assistant', content: 'x', extra_content: { google: { thought_signature: 'abc' } } }];
-assert.equal(await openaiTurn(withSig, ctx, [], groqFetch, groq), 'Siap!');
-assert.equal(groqBody!.messages[1].extra_content, undefined);
-assert.ok(withSig[1].extra_content, 'history itself keeps the signature for Gemini');
-assert.equal(brain(), 'gemini-3.8-flash → Groq openai/gpt-oss-120b');
-
-// Failover through chat(): Gemini errors, Groq answers, the reply says so
+// Groq down: chat() falls back to the keyword engine and says so
 const realFetch = globalThis.fetch;
-globalThis.fetch = (async (url: string) => String(url).includes('groq')
-  ? json({ choices: [{ message: { role: 'assistant', content: 'Dari Groq.' } }] })
-  : json({ error: { message: 'quota' } }, 429)) as unknown as typeof fetch;
-const reply = await chat('failover-user', 'tolong rencanakan minggu depanku', ctx);
+globalThis.fetch = (async () => json({ error: { message: 'quota' } }, 429)) as unknown as typeof fetch;
+const reply = await chat('fallback-user', 'tolong rencanakan minggu depanku', ctx);
 globalThis.fetch = realFetch;
-assert.equal(reply.text, 'Dari Groq.');
-assert.match(reply.note!, /answered by Groq/);
+assert.match(reply.note!, /keyword mode/);
 delete process.env.GROQ_API_KEY;
+assert.equal(brain(), 'keyword mode');
 
 console.log('assistant ok');

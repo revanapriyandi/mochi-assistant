@@ -2,7 +2,7 @@
 //   quick -> the keyword engine answers (no main-model tokens)
 //   agent -> the LLM agent answers, with only the tools the planner picked
 import type { Decision } from '../types.ts';
-import { providers } from './llm.ts';
+import { groq } from './llm.ts';
 import { isToolName, TOOLS } from './tools.ts';
 
 const QUICK = 'current weather or a forecast (today, tomorrow, this week, a named city); listing the calendar for today, tomorrow or this week; '
@@ -10,7 +10,7 @@ const QUICK = 'current weather or a forecast (today, tomorrow, this week, a name
   + 'finding free time on a day; changing one setting (city, units, nickname, language, event length, reply style); a daily briefing';
 
 export async function plan(text: string, lastReply = '', fetchFn: typeof fetch = fetch): Promise<Decision | null> {
-  const p = providers()[0]; // the planner runs on the first OpenAI-compatible (free) backend
+  const p = groq(); // the planner runs on free Groq
   if (!p) return null;
   const res = await fetchFn(`${p.url}chat/completions`, {
     method: 'POST', headers: { authorization: `Bearer ${p.key}`, 'content-type': 'application/json' },

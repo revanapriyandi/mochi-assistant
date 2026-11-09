@@ -21,7 +21,7 @@ Browser ──session──▶ Assistant ──your access token──▶ First-
 - **Voice mode by default**: one tap starts a conversation; Mochi listens, answers aloud, then listens again. Tap while it talks to interrupt; two silences and it naps. A hidden ⌨ button allows typing.
 - **Mochi, the 2D cat**: an SVG kitten with moods (happy, concerned, confused) and states (listening, thinking, speaking, sleeping), eyes that follow your pointer, blinks, lip sync from the voice audio, and petting (stroke it).
 - **AI voice**: ElevenLabs only (no browser or Google voices). Delivery follows the reply's mood; the language is sent so Indonesian sounds Indonesian.
-- **Brain**: Claude if `ANTHROPIC_API_KEY` is set, else free Gemini (`LLM_API_KEY`) with automatic failover to free Groq `gpt-oss-120b` (`GROQ_API_KEY`), else a built-in keyword engine (English and Indonesian). A planner routes simple requests to the fast path and the rest to the tool-using agent.
+- **Brain**: Claude if `ANTHROPIC_API_KEY` is set, else free Groq `gpt-oss-120b` (`GROQ_API_KEY`), else a built-in keyword engine (English and Indonesian). A planner routes simple requests to the fast path and the rest to the tool-using agent.
 - **Tools**: weather and 7-day forecast, list/create/move/delete calendar events, find free time, day briefing with recommendations (umbrella, back-to-back meetings, best focus block), read/update profile.
 - **Pages**: Talk, Agenda (forecast, briefings, next 7 days), History (transcript), Settings (profile, voice, connections).
 - **Optional**: a photo-real avatar via [Simli](https://simli.com) when `SIMLI_API_KEY` and `SIMLI_FACE_ID` are set.
@@ -33,7 +33,7 @@ Browser ──session──▶ Assistant ──your access token──▶ First-
    - **Applications → APIs → Create API**, Identifier `https://context-assistant-api`, enable *Allow Offline Access*, and authorize the app for it.
    - Activate the **My Account API** and give the app access to `create:me:connected_accounts`.
    - **Authentication → Social → Google**: your own Google OAuth client (Calendar API enabled, scope `https://www.googleapis.com/auth/calendar.events`), with *Connected Accounts for Token Vault* turned on.
-2. Copy `.env.example` to `.env` and fill in the Auth0 values, a random `SESSION_SECRET`, and optionally `LLM_API_KEY` (Gemini), `GROQ_API_KEY` (Groq) and `ELEVENLABS_API_KEY`.
+2. Copy `.env.example` to `.env` and fill in the Auth0 values, a random `SESSION_SECRET`, and optionally `GROQ_API_KEY` (Groq) and `ELEVENLABS_API_KEY`.
 3. Run:
 
 ```bash

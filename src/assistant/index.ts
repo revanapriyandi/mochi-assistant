@@ -3,7 +3,7 @@
 import type { Card, ChatReply, Decision, TranscriptLine } from '../types.ts';
 import type { ToolCtx } from './context.ts';
 import { localChat } from './keyword.ts';
-import { claudeTurn, openaiTurn, providers, type OpenAIMessage } from './llm.ts';
+import { claudeTurn, groq, openaiTurn, type OpenAIMessage } from './llm.ts';
 import { mood } from './mood.ts';
 import { plan } from './planner.ts';
 import type Anthropic from '@anthropic-ai/sdk';
@@ -28,8 +28,8 @@ const textOf = (m: Message | undefined): string => {
 
 async function think(userId: string, text: string, ctx: ToolCtx): Promise<Omit<ChatReply, 'mood'>> {
   const useClaude = Boolean(process.env.ANTHROPIC_API_KEY);
-  const backends = providers();
-  if (!useClaude && !backends.length) return localChat(text, ctx); // no key: keyword engine only
+  const backend = groq();
+  if (!useClaude && !backend) return localChat(text, ctx); // no key: keyword engine only
 
   let messages = histories.get(userId);
   if (!messages || messages.length > 80) histories.set(userId, (messages = [])); // ponytail: reset, not compaction
@@ -49,28 +49,14 @@ async function think(userId: string, text: string, ctx: ToolCtx): Promise<Omit<C
   messages.push({ role: 'user', content: `[now: ${new Date().toLocaleString('sv-SE', { timeZone: ctx.timeZone })} ${ctx.timeZone}]\n${text}` });
   const cards: Card[] = [];
   const agent = decision && { ...decision, route: 'agent' as const };
-  if (useClaude) {
-    try {
-      return { text: await claudeTurn(messages as Anthropic.Beta.BetaMessageParam[], ctx, cards), cards, decision: agent };
-    } catch (err) {
-      return keywordFallback(userId, text, ctx, err);
-    }
+  try {
+    const reply = useClaude
+      ? await claudeTurn(messages as Anthropic.Beta.BetaMessageParam[], ctx, cards)
+      : await openaiTurn(messages as OpenAIMessage[], ctx, cards, fetch, backend!);
+    return { text: reply, cards, decision: agent };
+  } catch (err) {
+    return keywordFallback(userId, text, ctx, err);
   }
-  // Failover: Gemini, then Groq. Each try starts from the same history, so a half-finished turn never leaks.
-  // ponytail: a tool that already ran (e.g. created an event) may run again on the next backend; rare, accepted.
-  const before = messages.slice();
-  for (const [i, p] of backends.entries()) {
-    try {
-      const reply = await openaiTurn(messages as OpenAIMessage[], ctx, cards, fetch, p);
-      return { text: reply, cards, decision: agent, ...(i > 0 ? { note: `${backends[0].name} unavailable, answered by ${p.name}` } : {}) };
-    } catch (err) {
-      console.error(`${p.name} failed:`, (err as Error).message);
-      messages.splice(0, messages.length, ...before);
-      cards.length = 0;
-      if (i === backends.length - 1) return keywordFallback(userId, text, ctx, err);
-    }
-  }
-  return keywordFallback(userId, text, ctx, new Error('no backend'));
 }
 
 async function keywordFallback(userId: string, text: string, ctx: ToolCtx, err: unknown): Promise<Omit<ChatReply, 'mood'>> {
