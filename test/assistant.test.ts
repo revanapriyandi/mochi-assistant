@@ -1,7 +1,8 @@
 // Self-check: tools, decision rules, mood, planner and the OpenAI-compatible loop. No network, no keys.
 import assert from 'node:assert/strict';
 import { recommend } from '../src/assistant/decisions.ts';
-import { openaiTurn, type OpenAIMessage } from '../src/assistant/llm.ts';
+import { chat } from '../src/assistant/index.ts';
+import { brain, openaiTurn, providers, type OpenAIMessage } from '../src/assistant/llm.ts';
 import { mood } from '../src/assistant/mood.ts';
 import { plan } from '../src/assistant/planner.ts';
 import { zoned, parseTimes } from '../src/assistant/time.ts';
@@ -93,5 +94,34 @@ assert.equal(llmCalls[0].body.tools.find((t) => t.function.name === 'get_profile
 assert.deepEqual(msgs.map((m) => m.role), ['system', 'user', 'assistant', 'tool', 'assistant']);
 assert.equal(JSON.parse(String(msgs[3].content)).city, 'Bandung');
 assert.deepEqual(cards.map((c) => c.tool), ['get_profile']);
+
+// Groq fallback: its own URL, key and model, and Gemini-only extras stripped from the history it gets
+process.env.GROQ_API_KEY = 'groq-key';
+const groq = providers()[1];
+assert.equal(groq.url, 'https://api.groq.com/openai/v1/');
+assert.equal(groq.model, 'openai/gpt-oss-120b');
+let groqBody: { messages: Record<string, unknown>[] } | undefined;
+const groqFetch = (async (url: string, init: RequestInit) => {
+  assert.equal(url, 'https://api.groq.com/openai/v1/chat/completions');
+  assert.equal((init.headers as Record<string, string>).authorization, 'Bearer groq-key');
+  groqBody = JSON.parse(String(init.body));
+  return json({ choices: [{ message: { role: 'assistant', content: 'Siap!' } }] });
+}) as unknown as typeof fetch;
+const withSig: OpenAIMessage[] = [{ role: 'system', content: 's' }, { role: 'assistant', content: 'x', extra_content: { google: { thought_signature: 'abc' } } }];
+assert.equal(await openaiTurn(withSig, ctx, [], groqFetch, groq), 'Siap!');
+assert.equal(groqBody!.messages[1].extra_content, undefined);
+assert.ok(withSig[1].extra_content, 'history itself keeps the signature for Gemini');
+assert.equal(brain(), 'gemini-3.8-flash → Groq openai/gpt-oss-120b');
+
+// Failover through chat(): Gemini errors, Groq answers, the reply says so
+const realFetch = globalThis.fetch;
+globalThis.fetch = (async (url: string) => String(url).includes('groq')
+  ? json({ choices: [{ message: { role: 'assistant', content: 'Dari Groq.' } }] })
+  : json({ error: { message: 'quota' } }, 429)) as unknown as typeof fetch;
+const reply = await chat('failover-user', 'tolong rencanakan minggu depanku', ctx);
+globalThis.fetch = realFetch;
+assert.equal(reply.text, 'Dari Groq.');
+assert.match(reply.note!, /answered by Groq/);
+delete process.env.GROQ_API_KEY;
 
 console.log('assistant ok');

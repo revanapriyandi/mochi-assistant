@@ -1,5 +1,5 @@
-// LLM brains. First one configured wins: Claude (ANTHROPIC_API_KEY), then any OpenAI-compatible
-// endpoint such as free Gemini (LLM_API_KEY). Both run the same tools in a manual tool loop.
+// LLM brains. Claude (ANTHROPIC_API_KEY) if set; otherwise OpenAI-compatible endpoints in failover
+// order: free Gemini (LLM_API_KEY), then free Groq (GROQ_API_KEY). All run the same tools in a manual loop.
 import Anthropic from '@anthropic-ai/sdk';
 import type { Card, ToolName } from '../types.ts';
 import type { ToolCtx } from './context.ts';
@@ -8,7 +8,20 @@ import { isToolName, runTool, TOOLS, type ToolInputs } from './tools.ts';
 export const CLAUDE_MODEL = 'claude-opus-5-5';
 export const llmUrl = () => (process.env.LLM_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta/openai/').replace(/\/?$/, '/');
 export const llmModel = () => process.env.LLM_MODEL || 'gemini-3.8-flash';
-export const brain = () => (process.env.ANTHROPIC_API_KEY ? `Claude (${CLAUDE_MODEL})` : process.env.LLM_API_KEY ? llmModel() : 'keyword mode');
+
+/** OpenAI-compatible backends in failover order: the main one (Gemini by default), then free Groq. */
+export interface Provider { name: string; url: string; key: string; model: string; plain?: boolean }
+export function providers(): Provider[] {
+  const list: Provider[] = [];
+  if (process.env.LLM_API_KEY) list.push({ name: llmModel(), url: llmUrl(), key: process.env.LLM_API_KEY, model: llmModel() });
+  if (process.env.GROQ_API_KEY) {
+    const model = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
+    list.push({ name: `Groq ${model}`, url: 'https://api.groq.com/openai/v1/', key: process.env.GROQ_API_KEY, model, plain: true });
+  }
+  return list;
+}
+export const brain = () => (process.env.ANTHROPIC_API_KEY ? `Claude (${CLAUDE_MODEL})`
+  : providers().map((p) => p.name).join(' → ') || 'keyword mode');
 
 export const systemPrompt = (ctx: ToolCtx) => `You are Mochi, a warm, playful cat who is ${ctx.name}'s personal assistant. Their timezone is ${ctx.timeZone}.
 Your replies are spoken aloud by a voice: keep them short and natural to say (1-3 sentences, no lists, no markdown, no emoji).
@@ -69,13 +82,21 @@ export interface OpenAIMessage {
 const OPENAI_TOOLS = TOOLS.map(({ name, description, input_schema: { additionalProperties: _, ...parameters } }) =>
   ({ type: 'function' as const, function: { name, description, parameters } }));
 
-export async function openaiTurn(messages: OpenAIMessage[], ctx: ToolCtx, cards: Card[], fetchFn: typeof fetch = fetch): Promise<string> {
+// Strict backends (Groq) reject provider-specific extras such as Gemini's thought signatures.
+const plainMessage = ({ role, content, tool_calls, tool_call_id }: OpenAIMessage): OpenAIMessage => ({
+  role, content: content ?? null,
+  ...(tool_calls ? { tool_calls: tool_calls.map(({ id, type, function: { name, arguments: args } }) => ({ id, type, function: { name, arguments: args } })) } : {}),
+  ...(tool_call_id ? { tool_call_id } : {}),
+});
+
+export async function openaiTurn(messages: OpenAIMessage[], ctx: ToolCtx, cards: Card[], fetchFn: typeof fetch = fetch,
+  p: Provider = providers()[0]): Promise<string> {
   if (messages[0]?.role !== 'system') messages.unshift({ role: 'system', content: systemPrompt(ctx) });
   const tools = ctx.tools ? OPENAI_TOOLS.filter((t) => ctx.tools!.has(t.function.name)) : OPENAI_TOOLS;
   for (let step = 0; step < 8; step++) {
-    const res = await fetchFn(`${llmUrl()}chat/completions`, {
-      method: 'POST', headers: { authorization: `Bearer ${process.env.LLM_API_KEY}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ model: llmModel(), messages, tool_choice: 'auto', tools }),
+    const res = await fetchFn(`${p.url}chat/completions`, {
+      method: 'POST', headers: { authorization: `Bearer ${p.key}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ model: p.model, messages: p.plain ? messages.map(plainMessage) : messages, tool_choice: 'auto', tools }),
     });
     const data = await res.json().catch(() => ({})) as { choices?: { message: OpenAIMessage }[]; error?: { message?: string } };
     if (!res.ok || !data.choices?.length) throw new Error(`LLM ${res.status}: ${data.error?.message ?? 'request failed'}`);

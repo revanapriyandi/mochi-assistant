@@ -14,6 +14,7 @@ const PAGES: Record<string, string> = { '/': 'index.html', '/agenda': 'agenda.ht
 
 export function createApp() {
   const app = express();
+  app.set('trust proxy', true); // behind a hosting proxy: https and client IPs come from X-Forwarded-*
   app.use(express.json());
   app.use('/api', profileApi); // first-party API: Bearer tokens only, no session
   app.use(session);
