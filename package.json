@@ -15,11 +15,13 @@
     "@anthropic-ai/sdk": "^1.6.0",
     "express": "^5.3.0",
     "express-oauth2-jwt-bearer": "^1.11.0",
-    "express-openid-connect": "^3.4.0"
+    "express-openid-connect": "^3.4.0",
+    "pg": "^8.23.1"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^26.6.6",
+    "@types/pg": "^8.23.1",
     "simli-client": "^3.2.0",
     "typescript": "^7.0.2"
   }

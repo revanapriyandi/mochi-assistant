@@ -35,8 +35,8 @@ assistantRoutes.post('/chat', requiresAuth(), async (req, res) => {
 });
 assistantRoutes.post('/chat/reset', requiresAuth(), (req, res) => { res.json({ ok: resetChat(sub(req)) }); });
 
-assistantRoutes.get('/history/data', requiresAuth(), (req, res) => { res.json(transcript(sub(req))); });
-assistantRoutes.delete('/history/data', requiresAuth(), (req, res) => { clearTranscript(sub(req)); res.json({ ok: true }); });
+assistantRoutes.get('/history/data', requiresAuth(), async (req, res) => { res.json(await transcript(sub(req))); });
+assistantRoutes.delete('/history/data', requiresAuth(), async (req, res) => { await clearTranscript(sub(req)); res.json({ ok: true }); });
 
 // Agenda page: 7-day forecast, today's and tomorrow's briefings, next 7 days of events.
 assistantRoutes.get('/agenda/data', requiresAuth(), async (req, res) => {

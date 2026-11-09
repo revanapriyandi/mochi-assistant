@@ -140,4 +140,24 @@ assert.match(reply.note!, /keyword mode/);
 delete process.env.GROQ_API_KEY;
 assert.equal(brain(), 'keyword mode');
 
+// Chat log: memory keeps the last 200 lines; Postgres creates the hypertable once, then reads in time order
+const { memoryLog, postgresLog } = await import('../src/assistant/chat-log.ts');
+const mem = memoryLog();
+await mem.append('u', Array.from({ length: 205 }, (_, i) => ({ who: 'me' as const, text: `m${i}`, at: i })));
+assert.equal((await mem.read('u')).length, 200);
+assert.equal((await mem.read('u'))[0].text, 'm5');
+await mem.clear('u');
+assert.deepEqual(await mem.read('u'), []);
+const sqls: { sql: string; params?: unknown[] }[] = [];
+const fakeDb = { query: async (sql: string, params?: unknown[]) => {
+  sqls.push({ sql, params });
+  return { rows: sql.startsWith('SELECT * FROM') ? [{ at: '1000', who: 'bot', text: 'hi', mood: 'happy', tools: ['get_weather'] }, { at: '999', who: 'me', text: 'x', mood: null, tools: null }] : [] };
+} } as unknown as Parameters<typeof postgresLog>[0];
+const pgLog = postgresLog(fakeDb);
+await pgLog.append('u1', [{ who: 'me', text: 'halo', at: 1000 }]);
+assert.match(sqls[0].sql, /create_hypertable\('chat_log', by_range\('at'\)/);
+assert.deepEqual(sqls[1].params, [1000, 'u1', 'me', 'halo', null, null]);
+assert.deepEqual(await pgLog.read('u1'), [{ at: 1000, who: 'bot', text: 'hi', mood: 'happy', tools: ['get_weather'] }, { at: 999, who: 'me', text: 'x' }]);
+assert.equal(sqls.filter((s) => s.sql.includes('create_hypertable')).length, 1); // schema once
+
 console.log('assistant ok');

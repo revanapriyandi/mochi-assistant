@@ -1,6 +1,7 @@
 // One conversation turn: planner -> keyword engine or LLM agent -> mood, with a keyword fallback
 // when the LLM is unavailable (free tiers hit quotas; the demo keeps working).
-import type { Card, ChatReply, Decision, TranscriptLine } from '../types.ts';
+import type { Card, ChatReply, Decision } from '../types.ts';
+import { chatLog } from './chat-log.ts';
 import type { ToolCtx } from './context.ts';
 import { localChat } from './keyword.ts';
 import { claudeTurn, groq, openaiTurn, type OpenAIMessage } from './llm.ts';
@@ -11,13 +12,12 @@ import type Anthropic from '@anthropic-ai/sdk';
 export { brain } from './llm.ts';
 
 type Message = Anthropic.Beta.BetaMessageParam | OpenAIMessage;
-// ponytail: in memory per user (lost on restart, single instance). Use a store to scale out.
+// ponytail: the LLM context is in memory per user (lost on restart); the visible transcript is in chatLog.
 const histories = new Map<string, Message[]>();
-const transcripts = new Map<string, TranscriptLine[]>();
 
 export const resetChat = (userId: string) => histories.delete(userId);
-export const transcript = (userId: string): TranscriptLine[] => transcripts.get(userId) ?? [];
-export const clearTranscript = (userId: string) => { transcripts.delete(userId); histories.delete(userId); };
+export const transcript = (userId: string) => chatLog.read(userId);
+export const clearTranscript = async (userId: string) => { histories.delete(userId); await chatLog.clear(userId); };
 
 const textOf = (m: Message | undefined): string => {
   if (!m) return '';
@@ -70,8 +70,8 @@ export async function chat(userId: string, text: string, ctx: ToolCtx): Promise<
   const r = await think(userId, text, ctx);
   const out: ChatReply = { ...r, mood: mood(r.text, r.cards) };
   const now = Date.now();
-  const log = transcript(userId);
-  log.push({ who: 'me', text, at: now }, { who: 'bot', text: out.text, at: now, mood: out.mood, tools: out.cards.map((c) => c.tool) });
-  transcripts.set(userId, log.slice(-200)); // ponytail: last 200 lines
+  // A failing store must not lose the reply the user is waiting for.
+  await chatLog.append(userId, [{ who: 'me', text, at: now }, { who: 'bot', text: out.text, at: now + 1, mood: out.mood, tools: out.cards.map((c) => c.tool) }])
+    .catch((err: Error) => console.error('chat log:', err.message));
   return out;
 }

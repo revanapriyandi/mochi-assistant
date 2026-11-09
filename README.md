@@ -29,6 +29,7 @@ Browser ──session──▶ Assistant ──your access token──▶ First-
 - **Brain**: Claude if `ANTHROPIC_API_KEY` is set, else free Groq `gpt-oss-120b` (`GROQ_API_KEY`), else a built-in keyword engine (English and Indonesian). A planner routes simple requests to the fast path and the rest to the tool-using agent.
 - **Tools**: weather and 7-day forecast, list/create/move/delete calendar events, find free time, day briefing with recommendations (umbrella, back-to-back meetings, best focus block), read/update profile.
 - **Pages**: Talk, Agenda (forecast, briefings, next 7 days), History (transcript), Settings (profile, voice, connections).
+- **History in Tiger Data**: with `DATABASE_URL` set, every line of the conversation goes into a `chat_log` table that Mochi turns into a TimescaleDB **hypertable** (`create_hypertable('chat_log', by_range('at'))`), partitioned by time and indexed by user, so History survives redeploys (`src/assistant/chat-log.ts`).
 - **Optional**: a photo-real avatar via [Simli](https://simli.com) when `SIMLI_API_KEY` and `SIMLI_FACE_ID` are set.
 
 ## Setup
