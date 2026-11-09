@@ -1,0 +1,26 @@
+{
+  "name": "context-preserving-assistant",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=23.6"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.client.json",
+    "start": "npm run build && node --env-file=.env src/server.ts",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.client.json --noEmit",
+    "test": "node test/assistant.test.ts && node test/keyword.test.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.6.0",
+    "express": "^5.3.0",
+    "express-oauth2-jwt-bearer": "^1.11.0",
+    "express-openid-connect": "^3.4.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.6",
+    "simli-client": "^3.2.0",
+    "typescript": "^7.0.2"
+  }
+}

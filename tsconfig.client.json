@@ -1,0 +1,18 @@
+{
+  // Browser code: compiled to public/js. `simli-client` is loaded from a CDN import map (only when Simli is configured).
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "es2022",
+    "moduleResolution": "bundler",
+    "lib": ["es2023", "dom", "dom.iterable"],
+    "strict": true,
+    "rootDir": "src",
+    "outDir": "public/js",
+    "rewriteRelativeImportExtensions": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "types": []
+  },
+  "include": ["src/client/**/*.ts", "src/types.ts"]
+}

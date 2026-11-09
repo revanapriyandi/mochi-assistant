@@ -1,0 +1,4 @@
+node_modules
+.env
+profiles.json
+public/js

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mochi · Settings</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<main class="page">
+  <h1 data-label="title">Settings</h1>
+  <p class="note" id="note" aria-live="polite"></p>
+
+  <h2 data-label="profileTitle">Profile</h2>
+  <form class="settings-form card" id="profile">
+    <label data-label="nickname">Call me<input name="nickname" maxlength="40" placeholder="Revan"></label>
+    <label data-label="city">Default city<input name="city" required maxlength="80"></label>
+    <label data-label="units">Units<select name="units"><option value="celsius">Celsius</option><option value="fahrenheit">Fahrenheit</option></select></label>
+    <label data-label="language">Language<select name="language"><option value="en">English</option><option value="id">Bahasa Indonesia</option></select></label>
+    <label data-label="style">Reply style<select name="style"><option value="friendly">Friendly</option><option value="concise">Concise</option></select></label>
+    <label data-label="eventMinutes">Default event length (min)<input name="eventMinutes" type="number" min="5" max="480" step="5" required></label>
+    <label data-label="voice">Mochi's voice<select name="voice">
+      <option value="cgSgspJ2msm6clMCkdW9">Jessica · playful, bright</option><option value="FGY2WhTYpPnrIDTdsKH5">Laura · quirky, sunny</option>
+      <option value="Xb7hH8MSUJpSbSDYk0k2">Alice · clear, friendly</option><option value="pFZP5JQG7iQjIQuC4Bku">Lily · soft, sweet</option>
+      <option value="XrExE9yKq2Vgxp9V6dYx">Matilda · warm</option></select></label>
+    <div class="actions">
+      <button class="primary" data-label="save">Save</button>
+      <button class="ghost" id="test" type="button" data-label="test">▶ Test voice</button>
+    </div>
+  </form>
+
+  <h2 data-label="connTitle">Connections</h2>
+  <div class="card" id="connections"></div>
+  <p><a class="ghost" href="/logout" data-label="logout">Log out</a></p>
+</main>
+<script type="module" src="/js/client/pages/settings.js"></script>
+</body>
+</html>

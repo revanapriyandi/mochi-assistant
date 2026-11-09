@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mochi · Talk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+<script type="importmap">{ "imports": { "simli-client": "https://cdn.jsdelivr.net/npm/simli-client@3.2.0/+esm" } }</script>
+</head>
+<body class="talk">
+<main class="talk-page">
+  <div class="cat" id="cat" data-state="idle" tabindex="0" role="button" aria-label="Mochi. Tap to start or stop talking."></div>
+  <p class="status" id="status" aria-live="polite"></p>
+  <p class="hint" id="hint">🎙 One tap starts a voice conversation · tap again to stop · stroke Mochi to pet</p>
+  <p class="heard" id="heard" aria-live="polite"></p>
+  <p class="said" id="said" aria-live="polite"></p>
+  <div class="badges" id="badges"></div>
+  <div class="cards" id="cards"></div>
+  <div class="talk-tools">
+    <button class="end-session" id="session" type="button" hidden>■ End conversation</button>
+    <button class="kbd" id="kbd" type="button" aria-label="Type instead" aria-expanded="false" title="Type instead">⌨</button>
+  </div>
+  <form class="typing" id="typing" hidden>
+    <input id="msg" aria-label="Message" autocomplete="off" maxlength="2000" placeholder="Type to Mochi…">
+    <button class="primary">Send</button>
+  </form>
+</main>
+<script type="module" src="/js/client/pages/talk.js"></script>
+</body>
+</html>
