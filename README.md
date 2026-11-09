@@ -9,6 +9,7 @@ Mochi is a cute 2D cat you talk to. Tap it, speak, and it answers out loud, acti
 1. **Auth0 Universal Login** signs you in (`express-openid-connect`, with `offline_access` for silent refresh).
 2. **First-party API** (`/api/profile`) holds your settings: city, units, nickname, reply language, default event length, reply style and voice. It accepts only an Auth0 access token (`express-oauth2-jwt-bearer`) and keys data on the token's `sub`. The assistant reaches it with *your* token, never by reading the store.
 3. **Third-party API via Auth0 Token Vault**: Google Calendar. Your Google account is linked once through Auth0 Connected Accounts; afterwards the server trades your Auth0 refresh token for a Google access token (`federated-connection-access-token` exchange) whenever Mochi needs your calendar. Weather comes from Open-Meteo (public, no token).
+4. **The veto (Asynchronous Authorization, CIBA)**: deleting an event is high-impact, so Mochi pauses before Google's DELETE and Auth0 asks you out of band (an Auth0 Guardian push, or an email when `CIBA_EXPIRY` > 300) with *"Mochi wants to delete Standup"*. The agent waits for your answer; decline it and nothing changes. The check lives in the one function that deletes events (`src/assistant/calendar.ts`), so every path (LLM or keyword engine) goes through it.
 
 ```
 Browser ──session──▶ Assistant ──your access token──▶ First-party API (/api/profile)
@@ -17,6 +18,8 @@ Browser ──session──▶ Assistant ──your access token──▶ First-
 ```
 
 **One conversation, both APIs:** "Am I free tomorrow afternoon? If so book 2 hours for gym." Mochi reads your default city, units, language and event length from the first-party API, checks the forecast, finds a free slot in Google Calendar and creates the event.
+
+**The veto:** "Delete my standup tomorrow." Mochi finds it in Google Calendar (Token Vault), then your phone buzzes; it is deleted only after you approve.
 
 ## Features
 
@@ -31,10 +34,11 @@ Browser ──session──▶ Assistant ──your access token──▶ First-
 ## Setup
 
 1. **Auth0** (free account at [auth0.com](https://auth0.com)):
-   - **Applications → Create Application → Regular Web Application**. Allowed Callback URLs `http://localhost:3000/callback, http://localhost:3000/connect/callback`; Allowed Logout URLs `http://localhost:3000`. Under Advanced → Grant Types enable *Refresh Token* and *Token Vault*.
+   - **Applications → Create Application → Regular Web Application**. Allowed Callback URLs `http://localhost:3000/callback, http://localhost:3000/connect/callback`; Allowed Logout URLs `http://localhost:3000`. Under Advanced → Grant Types enable *Refresh Token*, *Token Vault* and *Client Initiated Backchannel Authentication (CIBA)*.
    - **Applications → APIs → Create API**, Identifier `https://context-assistant-api`, enable *Allow Offline Access*, and authorize the app for it.
    - Activate the **My Account API** and give the app access to `create:me:connected_accounts`.
    - **Authentication → Social → Google**: your own Google OAuth client (Calendar API enabled, scope `https://www.googleapis.com/auth/calendar.events`), with *Connected Accounts for Token Vault* turned on.
+   - **The veto (CIBA)**: Security → Multi-factor Auth → enable *Push Notification using Auth0 Guardian*, and enroll your account in the Guardian app (or enable the CIBA email channel and set `CIBA_EXPIRY` above 300).
 2. Copy `.env.example` to `.env` and fill in the Auth0 values, a random `SESSION_SECRET`, and optionally `GROQ_API_KEY` (Groq) and `ELEVENLABS_API_KEY`.
 3. Run:
 

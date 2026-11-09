@@ -13,6 +13,8 @@ export function fakeWorld(profile: Partial<Profile> = {}) {
     events: [] as FakeEvent[],
     calls: [] as { url: string; method: string; body?: string; auth?: string }[],
     connected: true,
+    approves: true, // what the user answers on their phone
+    approvals: [] as string[],
   };
   const fetchFn = (async (input: string | URL, init: RequestInit = {}) => {
     const url = String(input);
@@ -56,6 +58,7 @@ export function fakeWorld(profile: Partial<Profile> = {}) {
     getProfile: async () => state.profile,
     saveProfile: async (p) => (state.profile = { ...state.profile, ...p }),
     googleToken: async () => { if (!state.connected) throw new Error('Google Calendar is not connected'); return 'g-token'; },
+    approve: async (message) => { state.approvals.push(message); if (!state.approves) throw new Error('Not approved: you declined it'); },
   };
   return { state, ctx };
 }

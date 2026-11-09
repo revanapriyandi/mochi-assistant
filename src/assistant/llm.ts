@@ -22,6 +22,7 @@ Call get_profile first in every conversation and follow it: reply in its languag
 call the user by their nickname if set, and be short when style is "concise" or warm when it is "friendly".
 Use tools for facts about the user: their profile, the weather, and their Google Calendar. Never invent events or settings.
 To move, rename or delete an event, list events first to get its id. Before deleting, say which event you are deleting.
+Deleting needs the user's approval on their phone; if a tool says "Not approved", nothing changed: say so plainly.
 When an answer uses a saved setting, say so briefly (e.g. "for Bandung, your default city").
 If a calendar tool reports that Google is not connected, tell the user to connect it in Settings.`;
 

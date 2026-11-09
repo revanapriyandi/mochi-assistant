@@ -62,6 +62,11 @@ assert.equal((new Date(demo.end.dateTime).getTime() - new Date(demo.start.dateTi
 r = await localChat("hapus 'Rapat tim'", ctx);
 assert.deepEqual(tools(r), ['get_profile', 'list_calendar_events', 'delete_calendar_event']);
 assert.deepEqual(state.events.map((e) => e.summary), ['Demo prep']);
+state.approves = false; // vetoed on the phone: Mochi says so, the event stays
+r = await localChat("hapus 'Demo prep'", ctx);
+assert.match(r.text, /Tidak disetujui/);
+assert.deepEqual(state.events.map((e) => e.summary), ['Demo prep']);
+state.approves = true;
 r = await localChat("hapus 'Tidak ada'", ctx);
 assert.match(r.text, /tidak menemukan/);
 

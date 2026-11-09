@@ -10,6 +10,8 @@ export interface ToolCtx {
   saveProfile(change: Partial<Profile>): Promise<Profile>;
   /** Google access token from Auth0 Token Vault; throws "not connected" when the user hasn't linked Google. */
   googleToken(): Promise<string>;
+  /** Out-of-band approval (Auth0 CIBA) for high-impact actions; throws "Not approved: ..." unless the user approves. */
+  approve(message: string): Promise<void>;
   /** Set by the orchestrator: the tools the agent may use this turn (null = all). */
   tools?: Set<ToolName> | null;
 }

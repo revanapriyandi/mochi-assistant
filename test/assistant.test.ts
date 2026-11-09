@@ -41,6 +41,40 @@ assert.deepEqual(slots.map((s) => s.start), ['2026-11-10T01:00:00.000Z', '2026-1
 const { deleted } = await runTool('delete_calendar_event', { event_id: created.id! }, ctx);
 assert.equal(deleted.summary, 'Daily standup');
 assert.equal(state.events.length, 0);
+assert.deepEqual(state.approvals, ['Mochi wants to delete Daily standup']);
+
+// The veto: declined on the phone -> Google never gets the DELETE
+const { created: keep } = await runTool('create_calendar_event', { summary: 'Keep me', start: '2026-11-10T09:00:00+07:00', end: '2026-11-10T09:30:00+07:00' }, ctx);
+state.approves = false;
+const before = state.calls.length;
+await assert.rejects(runTool('delete_calendar_event', { event_id: keep.id! }, ctx), /Not approved/);
+assert.equal(state.events.length, 1);
+assert.ok(!state.calls.slice(before).some((c) => c.method === 'DELETE'));
+state.approves = true;
+state.events.length = 0;
+
+// CIBA protocol: bc-authorize with the user's sub, then poll the token endpoint (pending, slow_down, approved)
+Object.assign(process.env, { AUTH0_DOMAIN: 't.auth0.com', AUTH0_CLIENT_ID: 'cid', AUTH0_CLIENT_SECRET: 'sec', AUTH0_AUDIENCE: 'a', SESSION_SECRET: 's' });
+const { approve, bindingMessage } = await import('../src/auth/ciba.ts');
+assert.equal(bindingMessage('Mochi wants to delete "Rapat 1:1" — besok!'), 'Mochi wants to delete Rapat 1:1 besok');
+const cibaCalls: { url: string; body: URLSearchParams }[] = [];
+const cibaFetch = (answers: { error?: string; interval?: number }[]) => (async (url: string, init: RequestInit) => {
+  cibaCalls.push({ url, body: init.body as URLSearchParams });
+  if (url.endsWith('/bc-authorize')) return json({ auth_req_id: 'req1', expires_in: 300, interval: 5 });
+  const a = answers.shift()!;
+  return a.error ? json(a, 400) : json({ access_token: 'x' });
+}) as unknown as typeof fetch;
+const waits: number[] = [];
+const sleep = async (ms: number) => { waits.push(ms); };
+await approve('google-oauth2|42', 'Mochi wants to delete Standup', cibaFetch([{ error: 'authorization_pending' }, { error: 'slow_down', interval: 10 }, {}]), sleep);
+assert.equal(cibaCalls[0].url, 'https://t.auth0.com/bc-authorize');
+assert.deepEqual(JSON.parse(cibaCalls[0].body.get('login_hint')!), { format: 'iss_sub', iss: 'https://t.auth0.com/', sub: 'google-oauth2|42' });
+assert.equal(cibaCalls[0].body.get('binding_message'), 'Mochi wants to delete Standup');
+assert.equal(cibaCalls[1].body.get('grant_type'), 'urn:openid:params:grant-type:ciba');
+assert.equal(cibaCalls[1].body.get('auth_req_id'), 'req1');
+assert.deepEqual(waits, [5000, 5000, 10000]);
+await assert.rejects(approve('u', 'm', cibaFetch([{ error: 'access_denied' }]), sleep), /Not approved: you declined/);
+await assert.rejects(approve('u', 'm', cibaFetch([{ error: 'expired_token' }]), sleep), /expired/);
 
 state.connected = false;
 await assert.rejects(runTool('list_calendar_events', { time_min: 'a', time_max: 'b' }, ctx), /not connected/);

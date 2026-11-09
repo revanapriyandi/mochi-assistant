@@ -1,5 +1,6 @@
 import type { Request } from 'express';
 import type { ToolCtx } from '../assistant/context.ts';
+import { approve } from '../auth/ciba.ts';
 import { asUser, googleToken } from '../auth/tokens.ts';
 import type { Profile } from '../types.ts';
 
@@ -17,5 +18,6 @@ export function toolCtx(req: Request, timeZone: unknown): ToolCtx {
     getProfile: () => asUser<Profile>(req),
     saveProfile: (p) => asUser<Profile>(req, 'PUT', p),
     googleToken: () => googleToken(req),
+    approve: (message) => approve(req.oidc.user!.sub as string, message),
   };
 }

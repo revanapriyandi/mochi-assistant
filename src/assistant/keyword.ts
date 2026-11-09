@@ -17,6 +17,7 @@ const SAY = {
   en: {
     days: ['today', 'tomorrow', 'the day after tomorrow'],
     notConnected: 'Your Google Calendar isn\'t connected yet. Connect it in Settings, then ask again.',
+    vetoed: 'Not approved on your phone, so I left your calendar as it was.',
     askTitle: 'What should I call the event? Try: add "Demo prep" tomorrow at 4.',
     askTime: (t: string, d: string) => `What time should "${t}" be? Try: add "${t}" ${d} at 4.`,
     created: (t: string, d: string, c: string) => `Done. "${t}" is on your Google Calendar ${d} at ${c}.`,
@@ -41,6 +42,7 @@ const SAY = {
   id: {
     days: ['hari ini', 'besok', 'lusa'],
     notConnected: 'Google Calendar kamu belum terhubung. Hubungkan di Pengaturan, lalu tanya lagi.',
+    vetoed: 'Tidak disetujui di HP kamu, jadi kalendermu tidak kuubah.',
     askTitle: 'Acaranya mau dinamai apa? Coba: tambah "Persiapan demo" besok jam 4.',
     askTime: (t: string, d: string) => `Jam berapa "${t}"? Coba: tambah "${t}" ${d} jam 16.`,
     created: (t: string, d: string, c: string) => `Beres. "${t}" sudah masuk Google Calendar kamu ${d} jam ${c}.`,
@@ -82,6 +84,7 @@ export async function localChat(message: string, ctx: ToolCtx): Promise<KeywordR
   const calendar = async (fn: () => Promise<KeywordReply>): Promise<KeywordReply> => {
     try { return await fn(); } catch (err) {
       if (/not connected/i.test((err as Error).message)) return reply(L.notConnected);
+      if (/not approved/i.test((err as Error).message)) return reply(L.vetoed);
       throw err;
     }
   };

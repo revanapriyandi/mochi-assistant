@@ -38,6 +38,7 @@ export const updateEvent = async (ctx: ToolCtx, id: string, change: { summary?: 
 
 export async function deleteEvent(ctx: ToolCtx, id: string): Promise<CalEvent> {
   const old = toEvent(await api<GEvent>(ctx, one(id)));
+  await ctx.approve(`Mochi wants to delete ${old.summary}`); // the veto: nothing is deleted without it
   await api(ctx, one(id), { method: 'DELETE' });
   return old;
 }
